@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Secure Quiz App</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+window.MathJax = {
+  tex:{ inlineMath:[['$','$']], displayMath:[['$$','$$']] },
+  options:{ skipHtmlTags:['script','noscript','style','textarea','pre'] },
+  startup:{ typeset:false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async id="MathJax-script"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f0eff5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.app{width:100%;max-width:500px;background:#fff;border-radius:20px;box-shadow:0 4px 30px rgba(0,0,0,0.12);overflow:hidden;min-height:580px;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;flex:1;}
+.screen.active{display:flex;}
+.topbar{padding:1rem 1.5rem;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;}
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-block;}
+.badge-red{background:#fef0ec;color:#c0392b;}
+.badge-purple{background:#f0effe;color:#534AB7;}
+.card{background:#fff;border:1px solid #eee;border-radius:12px;padding:1.25rem;}
+.inp{width:100%;padding:0.75rem 1rem;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border 0.2s;}
+.inp:focus{border-color:#534AB7;box-shadow:0 0 0 3px rgba(83,74,183,0.1);}
+.phone-row{display:flex;align-items:center;border:1.5px solid #ddd;border-radius:8px;overflow:hidden;transition:border 0.2s;}
+.phone-row:focus-within{border-color:#534AB7;}
+.phone-pre{padding:0.75rem;background:#f8f8f8;border-right:1px solid #ddd;font-size:14px;color:#666;white-space:nowrap;}
+.phone-row input{border:none;padding:0.75rem;font-size:14px;flex:1;outline:none;font-family:'DM Sans',sans-serif;}
+.btn{width:100%;padding:0.85rem;border-radius:8px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;border:none;cursor:pointer;transition:opacity 0.15s;}
+.btn-purple{background:#534AB7;color:#fff;}
+.btn-purple:hover{opacity:0.88;}
+.btn-outline{background:#fff;color:#534AB7;border:1.5px solid #534AB7;}
+.btn-outline:hover{background:#f0effe;}
+.btn-sm{padding:0.5rem 1rem;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;background:#fff;border:1px solid #ddd;display:inline-flex;align-items:center;gap:5px;}
+.btn-sm:hover{background:#f5f5f5;}
+.btn-nav{flex:1;padding:0.65rem;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;background:#f5f5f5;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;gap:6px;transition:background 0.15s;}
+.btn-nav:hover:not(:disabled){background:#eee;}
+.btn-nav:disabled{opacity:0.35;cursor:not-allowed;}
+.btn-danger{padding:0.35rem 0.75rem;border-radius:6px;background:#fef0ec;color:#c0392b;border:none;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-release{padding:0.35rem 0.75rem;border-radius:6px;background:#fff8e1;color:#856404;border:none;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.msg{font-size:13px;padding:0.6rem 0.75rem;border-radius:8px;text-align:center;}
+.msg-err{background:#fef0ec;color:#c0392b;}
+.msg-ok{background:#e8f8f0;color:#0F6E56;}
+.msg-info{background:#f0effe;color:#534AB7;}
+.opt{width:100%;text-align:left;padding:0.85rem 1rem;border:1.5px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;color:#1a1a1a;display:flex;align-items:center;gap:10px;transition:all 0.2s;}
+.opt:hover{background:#f8f8f8;}
+.opt.correct{border-color:#0F6E56;background:#e8f8f0;color:#085041;}
+.opt.wrong{border-color:#c0392b;background:#fef0ec;color:#4A1B0C;}
+.opt.disabled{pointer-events:none;}
+.opt-label{width:28px;height:28px;border-radius:50%;border:1.5px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;transition:all 0.2s;}
+.opt.correct .opt-label{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.opt.wrong   .opt-label{background:#c0392b;border-color:#c0392b;color:#fff;}
+#q-text b,#q-text strong,.opt b,.opt strong{font-weight:700;}
+#q-text u,.opt u{text-decoration:underline;}
+#q-text em,.opt em{font-style:italic;}
+#q-text s,.opt s{text-decoration:line-through;}
+.ai-box{background:#f0effe;border-left:3px solid #534AB7;border-radius:10px;padding:1rem;}
+.ai-box p{font-size:14px;line-height:1.7;color:#1a1a1a;}
+.dots span{display:inline-block;width:7px;height:7px;background:#534AB7;border-radius:50%;margin:0 2px;animation:bop 1.2s infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes bop{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+.class-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:1.25rem 0.75rem;border:2.5px solid #eee;border-radius:14px;cursor:pointer;transition:all 0.18s;background:#fff;flex:1;text-align:center;}
+.class-card:hover{border-color:#bbb;transform:translateY(-2px);}
+.class-card.selected{border-color:#534AB7;background:#f0effe;}
+.class-card-icon{font-size:30px;}
+.class-card-name{font-size:13px;font-weight:700;color:#333;}
+.class-card.selected .class-card-name{color:#534AB7;}
+.chip{display:flex;align-items:center;gap:10px;padding:0.85rem 1rem;border:2px solid #eee;border-radius:10px;cursor:pointer;transition:all 0.15s;background:#fff;}
+.chip:hover{border-color:#ccc;}
+.chip.on{border-color:#534AB7;background:#f0effe;}
+.chip-icon{font-size:20px;width:30px;text-align:center;}
+.chip-name{font-size:14px;font-weight:500;flex:1;}
+.chip-tick{width:22px;height:22px;border-radius:50%;border:2px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s;}
+.chip.on .chip-tick{background:#534AB7;border-color:#534AB7;color:#fff;}
+.prog-wrap{padding:1rem 1.5rem 0;}
+.prog-bar{height:4px;background:#eee;border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;background:#534AB7;transition:width .4s;}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.stat{background:#f5f5f5;border-radius:10px;padding:1rem;text-align:center;}
+.stat-n{font-size:26px;font-weight:700;}
+.stat-l{font-size:12px;color:#666;margin-top:4px;}
+.q-wrap{position:relative;overflow:hidden;}
+.wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:38px;font-weight:700;color:rgba(83,74,183,0.05);pointer-events:none;white-space:nowrap;}
+.nav-row{display:flex;gap:8px;margin-top:4px;}
+.admin-tabs{display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;}
+.admin-tab{flex:1;padding:0.5rem;border-radius:8px;border:none;background:transparent;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;color:#666;transition:all 0.15s;}
+.admin-tab.active{background:#fff;color:#534AB7;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+.qbank-tabs{display:flex;gap:4px;background:#f5f5f5;border-radius:8px;padding:3px;}
+.qbank-tab{flex:1;padding:0.4rem 0.2rem;border-radius:6px;border:none;background:transparent;font-size:11px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;color:#666;transition:all 0.15s;}
+.qbank-tab.active{background:#534AB7;color:#fff;}
+.admin-scroll{overflow-y:auto;flex:1;}
+.admin-inner{padding:1.5rem;display:flex;flex-direction:column;gap:1rem;}
+.label{font-size:13px;color:#666;display:block;margin-bottom:5px;}
+.hint{font-size:11px;color:#999;line-height:1.5;}
+.sec-title{font-size:14px;font-weight:600;}
+.user-row{display:flex;align-items:center;justify-content:space-between;padding:0.65rem 0;border-bottom:1px solid #eee;}
+.user-row:last-child{border-bottom:none;}
+.admin-link{font-size:12px;color:#aaa;text-align:center;cursor:pointer;text-decoration:underline;margin-top:0.25rem;}
+.ql-toolbar.ql-snow{border-radius:8px 8px 0 0;border-color:#ddd !important;}
+.ql-container.ql-snow{border-radius:0 0 8px 8px;border-color:#ddd !important;font-family:'DM Sans',sans-serif !important;font-size:13px !important;}
+.ql-editor{min-height:140px;}
+#s-quiz{user-select:none;-webkit-user-select:none;}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:999;font-size:14px;color:#534AB7;font-weight:600;}
+.spinner{width:36px;height:36px;border:3px solid #e0dfff;border-top-color:#534AB7;border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:520px){body{padding:0;align-items:flex-start;}.app{border-radius:0;min-height:100vh;}}
+</style>
+</head>
+<body>
+<div class="app" id="APP">
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <span id="loading-text">Loading…</span>
+</div>
+
+<!-- LOGIN -->
+<div class="screen active" id="s-login" style="justify-content:center;padding:2rem 1.5rem;gap:1.25rem;">
+  <div style="text-align:center;">
+    <div style="width:56px;height:56px;border-radius:16px;background:#f0effe;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:26px;">🔒</div>
+    <h1 style="font-size:22px;font-weight:700;">Secure Quiz</h1>
+    <p style="font-size:13px;color:#666;margin-top:6px;">Enter your phone number to access</p>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:1rem;">
+    <div>
+      <span class="label">Phone number</span>
+      <div class="phone-row">
+        <span class="phone-pre">📱 +</span>
+        <input type="tel" id="phone" placeholder="2348012345678" maxlength="15" onkeydown="if(event.key==='Enter')login()"/>
+      </div>
+      <p class="hint" style="margin-top:4px;">Include country code, no spaces (e.g. 2348012345678)</p>
+    </div>
+    <div id="login-msg"></div>
+    <button class="btn btn-purple" id="login-btn" onclick="login()">→ Request Access</button>
+  </div>
+  <p class="admin-link" onclick="go('s-admin')">⚙ Admin Panel</p>
+</div>
+
+<!-- CLASS SELECTION -->
+<div class="screen" id="s-class" style="justify-content:center;padding:2rem 1.5rem;gap:1.5rem;">
+  <div style="text-align:center;">
+    <div style="font-size:36px;margin-bottom:8px;">🏫</div>
+    <h2 style="font-size:20px;font-weight:700;">Select Your Class</h2>
+    <p style="font-size:13px;color:#666;margin-top:5px;">Choose the arm you belong to</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <div class="class-card" id="cc-science"    onclick="selectClass('science')"><span class="class-card-icon">🔬</span><span class="class-card-name">Science</span></div>
+    <div class="class-card" id="cc-commercial" onclick="selectClass('commercial')"><span class="class-card-icon">💼</span><span class="class-card-name">Commercial</span></div>
+    <div class="class-card" id="cc-art"        onclick="selectClass('art')"><span class="class-card-icon">🎨</span><span class="class-card-name">Art</span></div>
+  </div>
+  <div id="class-msg"></div>
+  <button class="btn btn-purple" onclick="confirmClass()">Continue →</button>
+</div>
+
+<!-- SUBJECTS -->
+<div class="screen" id="s-subjects" style="padding:1.5rem;gap:1rem;overflow-y:auto;">
+  <div style="text-align:center;padding:0.5rem 0;">
+    <div style="font-size:32px;margin-bottom:8px;">📚</div>
+    <h2 style="font-size:20px;font-weight:700;">Choose Your Subjects</h2>
+    <p id="subj-class-tag" style="font-size:12px;color:#534AB7;font-weight:600;margin-top:4px;"></p>
+    <p style="font-size:13px;color:#666;margin-top:4px;">Select the subjects you want to be tested on</p>
+  </div>
+  <div id="chip-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+  <div id="subj-msg"></div>
+  <button class="btn btn-purple" onclick="startQuiz()">Start Quiz →</button>
+</div>
+
+<!-- ADMIN -->
+<div class="screen" id="s-admin">
+  <div class="admin-scroll">
+    <div class="admin-inner">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn-sm" onclick="go('s-login')">← Back</button>
+        <h2 style="font-size:16px;font-weight:600;">Admin Panel</h2>
+      </div>
+
+      <!-- AUTH CARD -->
+      <div class="card" id="auth-card" style="display:flex;flex-direction:column;gap:0.75rem;">
+        <p style="font-size:13px;color:#666;">Enter admin password to continue.</p>
+        <div style="position:relative;">
+          <input class="inp" type="password" id="apass" placeholder="Admin password" autocomplete="off" onkeydown="if(event.key==='Enter')unlock()"/>
+          <button onclick="togglePw()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div id="auth-msg"></div>
+        <button class="btn btn-purple" onclick="unlock()">🔓 Unlock</button>
+        <button class="btn btn-outline" onclick="go('s-reset-request')" style="margin-top:2px;font-size:13px;">🔑 Forgot / Change Password</button>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div id="dashboard" style="display:none;flex-direction:column;gap:1rem;">
+        <div class="admin-tabs">
+          <button class="admin-tab active" id="tab-users-btn" onclick="switchAdminTab('users')">👥 Users</button>
+          <button class="admin-tab"        id="tab-qbank-btn" onclick="switchAdminTab('qbank')">📝 Questions</button>
+          <button class="admin-tab"        id="tab-pw-btn"    onclick="switchAdminTab('pw')">🔑 Password</button>
+        </div>
+
+        <!-- USERS TAB -->
+        <div id="tab-users" style="display:flex;flex-direction:column;gap:1rem;">
+          <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+            <p class="sec-title">➕ Add Approved User</p>
+            <input class="inp" type="text" id="u-name" placeholder="Student full name"/>
+            <div class="phone-row">
+              <span class="phone-pre">📱 +</span>
+              <input type="tel" id="u-phone" placeholder="2348012345678" maxlength="15"/>
+            </div>
+            <div id="add-msg"></div>
+            <button class="btn btn-purple" onclick="addUser()">+ Add to Whitelist</button>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <p class="sec-title">Approved Users</p>
+              <button class="btn-sm" onclick="loadUsers()">↺ Refresh</button>
+            </div>
+            <div id="users-list"><p style="font-size:13px;color:#666;">Loading...</p></div>
+          </div>
+        </div>
+
+        <!-- QUESTION BANK TAB -->
+        <div id="tab-qbank" style="display:none;flex-direction:column;gap:0.75rem;">
+          <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+            <p class="sec-title">📝 Question Banks</p>
+            <p class="hint">Select a class arm, paste your questions, then click Save. Format:<br>
+              <strong>Q1. Question text</strong><br>
+              A. option one&nbsp;&nbsp;B. option two&nbsp;&nbsp;C. option three&nbsp;&nbsp;D. option four
+            </p>
+            <p class="hint" style="background:#fff8e1;padding:6px 8px;border-radius:6px;color:#856404;">
+              💡 Bold, underline, italic and colour applied in the editor will show exactly the same way during the quiz.
+            </p>
+            <div class="qbank-tabs">
+              <button class="qbank-tab active" id="qt-science"    onclick="switchQBank('science')">🔬 Science</button>
+              <button class="qbank-tab"         id="qt-commercial" onclick="switchQBank('commercial')">💼 Commercial</button>
+              <button class="qbank-tab"         id="qt-art"        onclick="switchQBank('art')">🎨 Art</button>
+            </div>
+            <div id="qb-science-wrap">   <div id="qb-science"></div>   </div>
+            <div id="qb-commercial-wrap" style="display:none;"><div id="qb-commercial"></div></div>
+            <div id="qb-art-wrap"        style="display:none;"><div id="qb-art"></div>       </div>
+            <div id="qbank-msg"></div>
+            <div id="qbank-counts" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            <button class="btn btn-purple" onclick="saveQs()">💾 Save This Bank</button>
+          </div>
+        </div>
+
+        <!-- PASSWORD TAB (only visible when already logged in) -->
+        <div id="tab-pw" style="display:none;flex-direction:column;gap:0.75rem;">
+          <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+            <p class="sec-title">🔑 Change Admin Password</p>
+            <p class="hint" style="background:#fff8e1;padding:6px 8px;border-radius:6px;color:#856404;">A verification code will be sent to igweebube21@gmail.com</p>
+            <button class="btn btn-purple" onclick="requestCodeFromDashboard()">📧 Send Verification Code</button>
+            <div id="pw-tab-msg"></div>
+            <div id="pw-code-section" style="display:none;flex-direction:column;gap:0.75rem;">
+              <input class="inp" type="text" id="pw-tab-code" placeholder="6-digit code from email" maxlength="6"/>
+              <input class="inp" type="password" id="pw-tab-new" placeholder="New password (min 6 chars)"/>
+              <button class="btn btn-purple" onclick="confirmPwChangeFromDashboard()">✓ Update Password</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PASSWORD RESET REQUEST (not logged in) -->
+<div class="screen" id="s-reset-request" style="justify-content:center;padding:2rem 1.5rem;gap:1.25rem;">
+  <div style="text-align:center;">
+    <div style="font-size:36px;margin-bottom:8px;">🔑</div>
+    <h2 style="font-size:20px;font-weight:700;">Reset Admin Password</h2>
+    <p style="font-size:13px;color:#666;margin-top:6px;">A 6-digit code will be sent to<br><strong>igweebube21@gmail.com</strong></p>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+    <div id="reset-req-msg"></div>
+    <button class="btn btn-purple" id="send-code-btn" onclick="sendResetCode()">📧 Send Code to Email</button>
+    <button class="btn-sm" style="width:100%;justify-content:center;" onclick="go('s-admin')">← Back to Login</button>
+  </div>
+</div>
+
+<!-- PASSWORD RESET CONFIRM -->
+<div class="screen" id="s-reset-confirm" style="justify-content:center;padding:2rem 1.5rem;gap:1.25rem;">
+  <div style="text-align:center;">
+    <div style="font-size:36px;margin-bottom:8px;">✉️</div>
+    <h2 style="font-size:20px;font-weight:700;">Enter Code</h2>
+    <p style="font-size:13px;color:#666;margin-top:6px;">Check igweebube21@gmail.com for your code</p>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column;gap:0.75rem;">
+    <input class="inp" type="text" id="reset-code" placeholder="6-digit code" maxlength="6"/>
+    <input class="inp" type="password" id="reset-new-pw" placeholder="New password (min 6 chars)"/>
+    <div id="reset-confirm-msg"></div>
+    <button class="btn btn-purple" onclick="confirmReset()">✓ Set New Password</button>
+    <button class="btn-sm" style="width:100%;justify-content:center;" onclick="go('s-reset-request')">← Resend Code</button>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div class="screen" id="s-quiz" oncontextmenu="return false">
+  <div class="topbar">
+    <div style="display:flex;gap:6px;">
+      <span class="badge badge-red">🔒 Protected</span>
+      <span class="badge badge-purple">🤖 AI Tutor</span>
+    </div>
+    <span id="q-ctr" style="font-size:14px;font-weight:600;color:#666;">Q 1/5</span>
+  </div>
+  <div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" id="prog" style="width:20%"></div></div></div>
+  <div style="padding:1.25rem 1.5rem;flex:1;display:flex;flex-direction:column;gap:1rem;overflow-y:auto;">
+    <div class="card q-wrap">
+      <div class="wm">PROTECTED</div>
+      <p id="q-subj" style="font-size:12px;color:#888;margin-bottom:8px;"></p>
+      <div id="q-text" style="font-size:15px;font-weight:500;line-height:1.6;"></div>
+    </div>
+    <div id="opts" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div id="ai-zone" style="display:none;flex-direction:column;gap:10px;">
+      <div class="ai-box" id="ai-box"><div class="dots"><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-nav" id="prev-btn" onclick="prevQ()" disabled>← Previous</button>
+      <button class="btn-nav" id="next-btn" onclick="nextQ()" disabled>Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen" id="s-results" style="justify-content:center;padding:2rem 1.5rem;gap:1.5rem;">
+  <div style="text-align:center;">
+    <div id="r-emoji" style="font-size:52px;margin-bottom:8px;">🎉</div>
+    <h2 id="r-title" style="font-size:22px;font-weight:700;">Quiz Complete!</h2>
+    <p id="r-sub" style="font-size:13px;color:#666;margin-top:6px;"></p>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="r-pct">0%</div><div class="stat-l">Score</div></div>
+    <div class="stat"><div class="stat-n" id="r-cor">0</div><div class="stat-l">Correct</div></div>
+    <div class="stat"><div class="stat-n" id="r-tot">0</div><div class="stat-l">Questions</div></div>
+  </div>
+  <button class="btn btn-purple" onclick="restart()">↺ Try Again</button>
+</div>
+
+</div><!-- .app -->
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const SB_URL = "https://nwfqwombhjwvqyglssvy.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53ZnF3b21iaGp3dnF5Z2xzc3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzODgxNDAsImV4cCI6MjA5Mzk2NDE0MH0.1sIHB2MZf9-JaUJCWWYijSVuL4h8gVvnlkzqbNBehF8";
+const H      = {"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY};
+const AI_ENDPOINT    = "/.netlify/functions/ai-tutor";
+const EMAIL_ENDPOINT = "/.netlify/functions/send-reset-email";
+const ADMIN_EMAIL    = "igweebube21@gmail.com";
+
+// ── DEVICE FINGERPRINT ────────────────────────────────────────────────────────
+// A stable random ID stored in localStorage — represents "this browser/device"
+function getDeviceId(){
+  let id=localStorage.getItem('_quiz_device_id');
+  if(!id){ id=crypto.randomUUID(); localStorage.setItem('_quiz_device_id',id); }
+  return id;
+}
+const DEVICE_ID=getDeviceId();
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let questionBanks = {science:[],commercial:[],art:[]};
+let quizQuestions = [];
+let currentQ      = 0;
+let score         = 0;
+let userPhone     = null;
+let selectedClass = null;
+let answers       = {};
+let activeQBank   = 'science';
+let pendingResetCode = null; // stored temporarily in memory only
+
+// ── SUBJECTS ──────────────────────────────────────────────────────────────────
+const SUBJECTS=[
+  {id:"english",name:"English Language",icon:"📝",classes:["science","commercial","art"],keys:["english","grammar","vocabulary","sentence","clause","phrase","pronoun","conjunction","preposition","article","noun","verb","adjective","adverb","tense","spelling","comprehension","diction","passage","essay","letter","speech","register"]},
+  {id:"maths",name:"Mathematics",icon:"📐",classes:["science","commercial","art"],keys:["integral","derivative","algebra","geometry","trigonometry","probability","matrix","quadratic","logarithm","calculus","arithmetic","equation","fraction","decimal","percentage","angle","triangle","circle","area","volume","sin","cos","tan","evaluate","compute","calculate","solve"]},
+  {id:"physics",name:"Physics",icon:"⚛️",classes:["science"],keys:["force","velocity","acceleration","momentum","kinetic","potential","gravity","electric","current","voltage","resistance","wave","frequency","refraction","reflection","nuclear","radioactive","thermodynamics","pressure","density","newton","coulomb","ohm","magnetic","photon","quantum"]},
+  {id:"chemistry",name:"Chemistry",icon:"🧪",classes:["science"],keys:["atom","molecule","bond","element","compound","reaction","acid","base","ph","oxidation","reduction","mole","valence","periodic","organic","inorganic","gas","solution","concentration","titration","isotope","electron","proton","neutron","alkane","alkene","alkyne","ester","alcohol","polymer","catalyst","equilibrium","enthalpy","electrolysis","chemical","precipitate"]},
+  {id:"biology",name:"Biology",icon:"🧬",classes:["science"],keys:["cell","organism","plant","animal","photosynthesis","respiration","digestion","reproduction","ecology","ecosystem","dna","gene","chromosome","evolution","taxonomy","mitosis","meiosis","protein","enzyme","hormone","nervous","immune","blood","heart","lung","kidney","membrane","osmosis","diffusion","virus","bacteria","fungi","genetics","mutation","adaptation"]},
+  {id:"economics",name:"Economics",icon:"💰",classes:["commercial","art"],keys:["supply","demand","market","inflation","gdp","trade","export","import","currency","bank","interest","tax","budget","fiscal","monetary","production","consumption","capital","labour","wage","profit","cost","utility","elasticity","scarcity","subsidy","tariff","recession","microeconomics","macroeconomics","price","aggregate"]},
+  {id:"commerce",name:"Commerce",icon:"🏪",classes:["commercial"],keys:["commerce","trade","business","entrepreneur","marketing","advertising","branding","distribution","wholesale","retail","consumer","invoice","receipt","debit","credit","balance","profit","loss","stock","goods","services","ledger","account","bank","insurance","partnership","cooperative"]},
+  {id:"accounts",name:"Financial Accounting",icon:"📊",classes:["commercial"],keys:["debit","credit","ledger","journal","trial balance","balance sheet","income statement","profit","loss","asset","liability","equity","depreciation","accrual","prepayment","bank reconciliation","cash flow","double entry","account","bookkeeping","financial","statement","appropriation"]},
+  {id:"literature",name:"Literature in English",icon:"📖",classes:["art","science","commercial"],keys:["novel","poem","poetry","play","drama","prose","character","plot","theme","setting","author","stanza","rhyme","metaphor","simile","imagery","symbolism","narrator","fiction","tragic","comic","sonnet","ballad","epic","protagonist","antagonist","soliloquy","satire","irony","alliteration","ode","elegy","genre","dialogue","wole","soyinka","achebe","shakespear","hardy"]},
+  {id:"crk",name:"CRK",icon:"✝️",classes:["art","commercial"],keys:["christian","religion","bible","god","jesus","christ","church","faith","prayer","gospel","testament","paul","moses","abraham","disciples","holy spirit","salvation","sin","grace","covenant","apostle","parable","miracle","prophecy","revelation","commandment","baptism","resurrection","isaiah","jeremiah","psalm","proverbs","exodus","genesis"]},
+  {id:"islamic",name:"Islamic Studies",icon:"☪️",classes:["art","commercial"],keys:["islam","muslim","quran","allah","prophet","muhammad","hadith","salah","mosque","ramadan","hajj","zakat","fasting","sunnah","shariah","iman","tawheed","angels","surah","ayah","hijra","caliphate","wudu","zakah","eid","sawm","ibadah","ummah","mecca","medina"]},
+  {id:"government",name:"Government",icon:"🏛️",classes:["art","commercial"],keys:["government","politics","constitution","democracy","election","parliament","senate","president","minister","law","policy","state","federal","judiciary","executive","legislature","citizen","rights","sovereignty","federalism","party","vote","coup","cabinet","bureaucracy","treaty","diplomacy","separation","power","checks","balances"]},
+  {id:"geography",name:"Geography",icon:"🌍",classes:["art","commercial","science"],keys:["geography","map","climate","weather","continent","country","ocean","river","mountain","population","urban","rural","soil","vegetation","erosion","plate","tectonic","latitude","longitude","altitude","rainfall","drainage","rock","mineral","earthquake","volcano","savanna","desert","forest","coast","delta","migration"]},
+  {id:"general",name:"General Paper",icon:"📋",classes:["science","commercial","art"],keys:[]},
+];
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function msg(id,text,type){
+  const el=document.getElementById(id);
+  if(el) el.innerHTML=text?`<div class="msg msg-${type}">${text}</div>`:'';
+}
+function showLoading(text='Loading…'){
+  document.getElementById('loading-text').textContent=text;
+  document.getElementById('loading-overlay').style.display='flex';
+}
+function hideLoading(){document.getElementById('loading-overlay').style.display='none';}
+function renderMath(el){
+  if(!el) return;
+  if(window.MathJax&&window.MathJax.typesetPromise) window.MathJax.typesetPromise([el]).catch(()=>{});
+  else setTimeout(()=>renderMath(el),350);
+}
+function togglePw(){const f=document.getElementById('apass');f.type=f.type==='password'?'text':'password';}
+function stripHtml(html){const t=document.createElement('div');t.innerHTML=html;return t.textContent||t.innerText||'';}
+
+// ── ADMIN TABS ────────────────────────────────────────────────────────────────
+function switchAdminTab(tab){
+  ['users','qbank','pw'].forEach(t=>{
+    const el=document.getElementById('tab-'+t);
+    el.style.display=t===tab?'flex':'none';
+    if(t===tab) el.style.flexDirection='column';
+    document.getElementById('tab-'+t+'-btn').className='admin-tab'+(t===tab?' active':'');
+  });
+}
+
+// ── QUILL ─────────────────────────────────────────────────────────────────────
+let quills={};
+function initQuillFor(cls){
+  if(quills[cls]) return;
+  if(typeof Quill==='undefined'){setTimeout(()=>initQuillFor(cls),200);return;}
+  quills[cls]=new Quill('#qb-'+cls,{
+    theme:'snow',
+    modules:{toolbar:[['bold','italic','underline','strike'],[{background:[]},{color:[]}],['clean']]},
+    placeholder:`Paste ${cls} questions here…`
+  });
+}
+function switchQBank(cls){
+  activeQBank=cls;
+  ['science','commercial','art'].forEach(c=>{
+    document.getElementById('qb-'+c+'-wrap').style.display=c===cls?'block':'none';
+    document.getElementById('qt-'+c).className='qbank-tab'+(c===cls?' active':'');
+  });
+  setTimeout(()=>initQuillFor(cls),100);
+}
+function updateQBankCounts(){
+  const el=document.getElementById('qbank-counts');
+  if(!el) return;
+  const icons={science:'🔬',commercial:'💼',art:'🎨'};
+  el.innerHTML=['science','commercial','art'].map(c=>{
+    const n=questionBanks[c].length;
+    const col=n>0?'#0F6E56':'#999';
+    return `<span style="font-size:11px;background:#f5f5f5;padding:3px 9px;border-radius:20px;color:${col};">${icons[c]} ${c}: ${n} Qs</span>`;
+  }).join('');
+}
+
+// ── SUPABASE QUESTION BANK PERSISTENCE ────────────────────────────────────────
+// Uses a `question_banks` table with columns: id (pk), class_arm (text unique), questions (jsonb), updated_at (timestamptz)
+async function loadAllQBanksFromDB(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/question_banks?select=class_arm,questions`,{headers:H});
+    if(!res.ok) return;
+    const data=await res.json();
+    if(Array.isArray(data)){
+      data.forEach(row=>{
+        if(questionBanks[row.class_arm]!==undefined&&Array.isArray(row.questions)){
+          questionBanks[row.class_arm]=row.questions;
+        }
+      });
+    }
+  }catch(e){console.error('loadAllQBanksFromDB',e);}
+}
+
+async function saveQBankToDB(cls,questions){
+  // Upsert — requires the table to have a unique constraint on class_arm
+  const res=await fetch(`${SB_URL}/rest/v1/question_banks`,{
+    method:'POST',
+    headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({class_arm:cls,questions,updated_at:new Date().toISOString()})
+  });
+  if(!res.ok){
+    const txt=await res.text();
+    throw new Error(txt);
+  }
+}
+
+// ── ADMIN PASSWORD — stored in Supabase `admin_settings` table ───────────────
+// Table: id (text pk = 'admin_password'), value (text)
+// Seed row: INSERT INTO admin_settings(id,value) VALUES('admin_password','quiz2024');
+async function getAdminPassword(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/admin_settings?id=eq.admin_password&select=value`,{headers:H});
+    const data=await res.json();
+    if(Array.isArray(data)&&data.length>0) return data[0].value;
+  }catch(e){}
+  return 'quiz2024'; // fallback hardcoded default if table missing
+}
+async function setAdminPassword(newPw){
+  await fetch(`${SB_URL}/rest/v1/admin_settings?id=eq.admin_password`,{
+    method:'PATCH',
+    headers:{...H,'Prefer':'return=minimal'},
+    body:JSON.stringify({value:newPw})
+  });
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function login(){
+  const phone=document.getElementById('phone').value.replace(/\D/g,'');
+  if(!phone||phone.length<7){msg('login-msg','Please enter a valid phone number.','err');return;}
+  const btn=document.getElementById('login-btn');
+  btn.textContent='…checking';btn.disabled=true;
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${phone}&select=name,phone,active,device_id`,{headers:H});
+    const data=await res.json();
+    if(!data||!data.length){
+      msg('login-msg','Your number is not approved. Contact your admin.','err');
+    } else {
+      const user=data[0];
+      if(user.active && user.device_id && user.device_id!==DEVICE_ID){
+        // Active on a different device → block
+        msg('login-msg','⚠️ This number is already active on another device. Contact your admin to release it.','err');
+      } else {
+        // Either not active, or active on THIS same device → allow
+        await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${phone}`,{
+          method:'PATCH',headers:{...H,'Prefer':'return=minimal'},
+          body:JSON.stringify({active:true,device_id:DEVICE_ID})
+        });
+        userPhone=phone;
+        window.addEventListener('beforeunload',releaseSession);
+        // Load question banks from DB before showing class screen
+        showLoading('Loading quiz data…');
+        await loadAllQBanksFromDB();
+        hideLoading();
+        go('s-class');
+      }
+    }
+  }catch(e){msg('login-msg','Connection error. Check your internet and try again.','err');}
+  btn.textContent='→ Request Access';btn.disabled=false;
+}
+
+async function releaseSession(){
+  if(!userPhone) return;
+  await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${userPhone}`,{
+    method:'PATCH',headers:{...H,'Prefer':'return=minimal'},
+    body:JSON.stringify({active:false,device_id:null})
+  });
+  userPhone=null;
+}
+
+// ── CLASS ─────────────────────────────────────────────────────────────────────
+function selectClass(cls){
+  selectedClass=cls;
+  ['science','commercial','art'].forEach(c=>document.getElementById('cc-'+c).classList.toggle('selected',c===cls));
+  msg('class-msg','','ok');
+}
+function confirmClass(){
+  if(!selectedClass){msg('class-msg','Please select your class arm.','err');return;}
+  buildSubjectScreen();
+  go('s-subjects');
+}
+
+// ── ADMIN AUTH ────────────────────────────────────────────────────────────────
+async function unlock(){
+  const entered=document.getElementById('apass').value;
+  const correctPw=await getAdminPassword();
+  if(entered===correctPw){
+    document.getElementById('auth-card').style.display='none';
+    const db=document.getElementById('dashboard');
+    db.style.display='flex';db.style.flexDirection='column';
+    loadUsers();
+    // Load question banks so counts are correct
+    await loadAllQBanksFromDB();
+    updateQBankCounts();
+    setTimeout(()=>initQuillFor('science'),300);
+  } else {msg('auth-msg','Incorrect password.','err');}
+}
+
+// ── PASSWORD RESET (pre-login flow) ──────────────────────────────────────────
+async function sendResetCode(){
+  const btn=document.getElementById('send-code-btn');
+  btn.textContent='Sending…';btn.disabled=true;
+  // Generate 6-digit code
+  pendingResetCode=Math.floor(100000+Math.random()*900000).toString();
+  try{
+    const res=await fetch(EMAIL_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:ADMIN_EMAIL,code:pendingResetCode})
+    });
+    if(res.ok){
+      msg('reset-req-msg','✓ Code sent! Check your email.','ok');
+      setTimeout(()=>go('s-reset-confirm'),1200);
+    } else {
+      const j=await res.json().catch(()=>({}));
+      msg('reset-req-msg','❌ '+(j.error||'Failed to send email.'),'err');
+    }
+  }catch(e){msg('reset-req-msg','❌ Network error. Try again.','err');}
+  btn.textContent='📧 Send Code to Email';btn.disabled=false;
+}
+
+async function confirmReset(){
+  const code=document.getElementById('reset-code').value.trim();
+  const newPw=document.getElementById('reset-new-pw').value;
+  if(!code||code.length!==6){msg('reset-confirm-msg','Enter the 6-digit code from your email.','err');return;}
+  if(!pendingResetCode){msg('reset-confirm-msg','No code was generated. Please request a new one.','err');return;}
+  if(code!==pendingResetCode){msg('reset-confirm-msg','Incorrect code. Please try again.','err');return;}
+  if(!newPw||newPw.length<6){msg('reset-confirm-msg','Password must be at least 6 characters.','err');return;}
+  try{
+    await setAdminPassword(newPw);
+    pendingResetCode=null;
+    msg('reset-confirm-msg','✓ Password updated! Redirecting to login…','ok');
+    setTimeout(()=>{go('s-admin');document.getElementById('auth-card').style.display='';},1800);
+  }catch(e){msg('reset-confirm-msg','❌ Failed to update password.','err');}
+}
+
+// ── PASSWORD CHANGE (from inside dashboard) ───────────────────────────────────
+async function requestCodeFromDashboard(){
+  pendingResetCode=Math.floor(100000+Math.random()*900000).toString();
+  try{
+    const res=await fetch(EMAIL_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:ADMIN_EMAIL,code:pendingResetCode})
+    });
+    if(res.ok){
+      msg('pw-tab-msg','✓ Code sent to igweebube21@gmail.com','ok');
+      const sec=document.getElementById('pw-code-section');
+      sec.style.display='flex';sec.style.flexDirection='column';
+    } else {
+      msg('pw-tab-msg','❌ Failed to send email.','err');
+    }
+  }catch(e){msg('pw-tab-msg','❌ Network error.','err');}
+}
+async function confirmPwChangeFromDashboard(){
+  const code=document.getElementById('pw-tab-code').value.trim();
+  const newPw=document.getElementById('pw-tab-new').value;
+  if(code!==pendingResetCode){msg('pw-tab-msg','❌ Incorrect code.','err');return;}
+  if(!newPw||newPw.length<6){msg('pw-tab-msg','Password must be at least 6 characters.','err');return;}
+  await setAdminPassword(newPw);
+  pendingResetCode=null;
+  msg('pw-tab-msg','✓ Password updated successfully!','ok');
+  document.getElementById('pw-code-section').style.display='none';
+}
+
+// ── ADD / LOAD / REMOVE USERS ─────────────────────────────────────────────────
+async function addUser(){
+  const name=document.getElementById('u-name').value.trim();
+  const phone=document.getElementById('u-phone').value.replace(/\D/g,'');
+  if(!name){msg('add-msg','Please enter a student name.','err');return;}
+  if(!phone||phone.length<7){msg('add-msg','Please enter a valid phone number.','err');return;}
+  msg('add-msg','Checking...','info');
+  try{
+    const chkRes=await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${phone}&select=name,phone`,{headers:H});
+    const chkData=await chkRes.json();
+    if(Array.isArray(chkData)&&chkData.length>0){msg('add-msg',`⚠️ +${phone} already on whitelist (${chkData[0].name}).`,'err');return;}
+    const res=await fetch(`${SB_URL}/rest/v1/allowed_users`,{
+      method:'POST',headers:{...H,'Prefer':'return=representation'},
+      body:JSON.stringify({phone,name,active:false,device_id:null})
+    });
+    if(res.status===200||res.status===201){
+      msg('add-msg',`✓ ${name} added! They can now log in with +${phone}.`,'ok');
+      document.getElementById('u-name').value='';
+      document.getElementById('u-phone').value='';
+      loadUsers();
+    } else if(res.status===409){
+      msg('add-msg','⚠️ This phone number is already on the whitelist.','err');
+    } else {
+      msg('add-msg','❌ HTTP '+res.status,'err');
+    }
+  }catch(e){msg('add-msg','❌ Connection error: '+e.message,'err');}
+}
+
+async function loadUsers(){
+  const el=document.getElementById('users-list');
+  el.innerHTML='<p style="font-size:13px;color:#666;">Loading...</p>';
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/allowed_users?select=name,phone,active,device_id&order=created_at.desc`,{headers:H});
+    const data=await res.json();
+    if(!Array.isArray(data)||!data.length){el.innerHTML='<p style="font-size:13px;color:#666;">No users yet.</p>';return;}
+    el.innerHTML=data.map(u=>`
+      <div class="user-row">
+        <div>
+          <p style="font-size:14px;font-weight:500;">${u.name}</p>
+          <p style="font-size:12px;color:#666;">+${u.phone}${u.active?' 🟢 Active':''}</p>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${u.active?`<button class="btn-release" onclick="forceRelease('${u.phone}','${u.name}')">⚡ Release</button>`:''}
+          <button class="btn-danger" onclick="removeUser('${u.phone}','${u.name}')">✕ Remove</button>
+        </div>
+      </div>`).join('');
+  }catch(e){el.innerHTML='<p style="font-size:13px;color:#c0392b;">Failed to load users.</p>';}
+}
+
+async function removeUser(phone,name){
+  if(!confirm(`Remove ${name} from the whitelist?`)) return;
+  try{await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${phone}`,{method:'DELETE',headers:H});loadUsers();}catch(e){}
+}
+
+async function forceRelease(phone,name){
+  if(!confirm(`Force-release ${name}'s active session?`)) return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/allowed_users?phone=eq.${phone}`,{
+      method:'PATCH',headers:{...H,'Prefer':'return=minimal'},
+      body:JSON.stringify({active:false,device_id:null})
+    });
+    loadUsers();
+  }catch(e){}
+}
+
+// ── QUESTION PARSING ──────────────────────────────────────────────────────────
+function detectSubject(text,opts,classArm){
+  const combined=(text+' '+opts.join(' ')).toLowerCase();
+  let best='general',bestScore=0;
+  const eligible=SUBJECTS.filter(s=>s.id!=='general'&&(!classArm||s.classes.includes(classArm)));
+  for(const s of eligible){
+    let sc=0;
+    for(const k of s.keys){if(combined.includes(k)) sc+=k.split(' ').length;}
+    if(sc>bestScore){bestScore=sc;best=s.id;}
+  }
+  return best;
+}
+
+function parseQsFromHtml(html,classArm){
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html;
+  const paras=Array.from(tmp.querySelectorAll('p'));
+  const results=[];
+  const reQLine=/^(?:Q[\.\s]*(?:No\.?\s*)?\d+(?:\s+of\s+\d+)?(?:\s*\([^)]*\))?[\.\s]*|(?:\d+)[\.\)]\s)/i;
+  const reOpt=/^([A-D])[\.\)\s]\s*/i;
+  const reHeader=/^[A-Za-z][A-Za-z\s&\/\-]+(\(.*?\))?\s*$/;
+
+  function stripFirstTextNode(pEl,pattern){
+    const clone=pEl.cloneNode(true);
+    const walker=document.createTreeWalker(clone,NodeFilter.SHOW_TEXT);
+    const first=walker.nextNode();
+    if(first) first.textContent=first.textContent.replace(pattern,'');
+    return clone.innerHTML.trim();
+  }
+  function push(qHtml,optsHtml){
+    qHtml=qHtml.trim();
+    optsHtml=optsHtml.map(o=>o.trim()).filter(o=>o.length>0);
+    if(!qHtml||optsHtml.length<2) return;
+    const sid=detectSubject(stripHtml(qHtml),optsHtml.map(stripHtml),classArm);
+    const subj=SUBJECTS.find(s=>s.id===sid);
+    results.push({subjectId:sid,subjectName:subj?subj.name:'General',text:qHtml,options:optsHtml.slice(0,4)});
+  }
+
+  let qHtml='',optsHtml=[],collecting=false;
+  for(const p of paras){
+    const plain=(p.textContent||'').trim();
+    if(!plain) continue;
+    if(reQLine.test(plain)){
+      if(collecting) push(qHtml,optsHtml);
+      qHtml=stripFirstTextNode(p,/^Q[\.\s]*(?:No\.?\s*)?\d+(?:\s+of\s+\d+)?(?:\s*\([^)]*\))?[\.\s]*/i)||
+            stripFirstTextNode(p,/^\d+[\.\)\s]+/);
+      optsHtml=[];collecting=true;continue;
+    }
+    if(!collecting) continue;
+    if(reOpt.test(plain)){optsHtml.push(stripFirstTextNode(p,/^[A-D][\.\)\s]\s*/i));continue;}
+    if(optsHtml.length===0){
+      if(reHeader.test(plain)&&!reQLine.test(plain)) continue;
+      qHtml+=' '+p.innerHTML.trim();
+    }
+  }
+  if(collecting) push(qHtml,optsHtml);
+  return results;
+}
+
+async function saveQs(){
+  const cls=activeQBank;
+  if(!quills[cls]){msg('qbank-msg','Editor not ready. Please wait.','err');return;}
+  const html=quills[cls].root.innerHTML;
+  if(!quills[cls].getText().trim()){msg('qbank-msg','Please paste your questions first.','err');return;}
+  const parsed=parseQsFromHtml(html,cls);
+  if(!parsed.length){msg('qbank-msg','No questions detected. Make sure each question starts with "Q.No 1" or "1." and options use A. B. C. D.','err');return;}
+  msg('qbank-msg','Saving to server…','info');
+  try{
+    await saveQBankToDB(cls,parsed);
+    questionBanks[cls]=parsed;
+    const subjCount=[...new Set(parsed.map(q=>q.subjectId))].length;
+    msg('qbank-msg',`✓ ${parsed.length} question${parsed.length>1?'s':''} saved for ${cls} across ${subjCount} subject(s)! They are now live for all students.`,'ok');
+    updateQBankCounts();
+  }catch(e){
+    msg('qbank-msg','❌ Failed to save: '+e.message,'err');
+  }
+}
+
+// ── SUBJECT SCREEN ────────────────────────────────────────────────────────────
+function buildSubjectScreen(){
+  const bank=questionBanks[selectedClass]||[];
+  const labels={science:'🔬 Science',commercial:'💼 Commercial',art:'🎨 Art'};
+  document.getElementById('subj-class-tag').textContent=labels[selectedClass]||'';
+  const available=[...new Set(bank.map(q=>q.subjectId))];
+  const list=document.getElementById('chip-list');
+  list.innerHTML='';
+  if(!available.length){
+    list.innerHTML=`<p style="font-size:13px;color:#666;text-align:center;">No questions loaded for this class yet. Ask your admin.</p>`;
+    return;
+  }
+  SUBJECTS.filter(s=>available.includes(s.id)).forEach(s=>{
+    const d=document.createElement('div');
+    d.className='chip';d.id='chip-'+s.id;
+    d.innerHTML=`<span class="chip-icon">${s.icon}</span><span class="chip-name">${s.name}</span><span class="chip-tick">✓</span>`;
+    d.onclick=()=>d.classList.toggle('on');
+    list.appendChild(d);
+  });
+}
+
+function startQuiz(){
+  const selected=[...document.querySelectorAll('.chip.on')].map(c=>c.id.replace('chip-',''));
+  if(!selected.length){msg('subj-msg','Please select at least one subject.','err');return;}
+  const bank=questionBanks[selectedClass]||[];
+  quizQuestions=bank.filter(q=>selected.includes(q.subjectId)).sort(()=>Math.random()-0.5);
+  if(!quizQuestions.length){msg('subj-msg','No questions for the selected subjects.','err');return;}
+  currentQ=0;score=0;answers={};
+  go('s-quiz');loadQ();
+}
+
+// ── QUIZ ──────────────────────────────────────────────────────────────────────
+function loadQ(){
+  const q=quizQuestions[currentQ];
+  const total=quizQuestions.length;
+  document.getElementById('q-ctr').textContent=`Q ${currentQ+1}/${total}`;
+  document.getElementById('prog').style.width=`${((currentQ+1)/total)*100}%`;
+  document.getElementById('q-subj').textContent=q.subjectName;
+  const qEl=document.getElementById('q-text');
+  qEl.innerHTML=q.text;
+  renderMath(qEl);
+
+  const aiZone=document.getElementById('ai-zone');
+  const aiBox=document.getElementById('ai-box');
+  const prevBtn=document.getElementById('prev-btn');
+  const nextBtn=document.getElementById('next-btn');
+  prevBtn.disabled=currentQ===0;
+  nextBtn.disabled=true;
+  nextBtn.textContent=currentQ+1>=total?'Finish ✓':'Next →';
+
+  const optsEl=document.getElementById('opts');
+  optsEl.innerHTML='';
+  const prev=answers[currentQ];
+
+  if(prev!==undefined){
+    aiZone.style.display='flex';
+    aiBox.innerHTML=prev.explanation?`<p>${prev.explanation}</p>`:'<p>See the highlighted answer above.</p>';
+    q.options.forEach((opt,i)=>{
+      const btn=document.createElement('button');
+      btn.className='opt disabled';
+      if(i===prev.correctIdx) btn.classList.add('correct');
+      else if(i===prev.chosen&&prev.chosen!==prev.correctIdx) btn.classList.add('wrong');
+      btn.innerHTML=`<span class="opt-label">${['A','B','C','D'][i]}</span><span>${opt}</span>`;
+      optsEl.appendChild(btn);
+    });
+    renderMath(optsEl);renderMath(aiBox);
+    nextBtn.disabled=false;
+  } else {
+    aiZone.style.display='none';
+    q.options.forEach((opt,i)=>{
+      const btn=document.createElement('button');
+      btn.className='opt';
+      btn.innerHTML=`<span class="opt-label">${['A','B','C','D'][i]}</span><span>${opt}</span>`;
+      btn.onclick=()=>answer(i);
+      optsEl.appendChild(btn);
+    });
+    renderMath(optsEl);
+  }
+}
+
+function answer(chosenIdx){
+  document.querySelectorAll('.opt').forEach(b=>b.classList.add('disabled'));
+  const aiZone=document.getElementById('ai-zone');
+  const aiBox=document.getElementById('ai-box');
+  aiZone.style.display='flex';
+  aiBox.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
+  askAI(quizQuestions[currentQ],chosenIdx);
+}
+
+async function askAI(q,chosen){
+  const L=['A','B','C','D'];
+  const qPlain=stripHtml(q.text);
+  const optsPlain=q.options.map(stripHtml);
+  const optLines=optsPlain.map((o,i)=>`${L[i]}. ${o}`).join('\n');
+
+  const prompt=`You are a helpful educational tutor. A student answered a multiple choice question.
+
+Question: ${qPlain}
+
+Options:
+${optLines}
+
+Student chose: ${L[chosen]}. ${optsPlain[chosen]}
+
+Determine the correct answer. Reply in EXACTLY this format (2 lines only):
+CORRECT: [single letter A B C or D]
+EXPLAIN: [Start "✓ Correct!" if right, or "✗ Not quite — the correct answer is [letter]." if wrong. Then 2 warm encouraging sentences explaining why.]`;
+
+  const aiBox=document.getElementById('ai-box');
+  const nextBtn=document.getElementById('next-btn');
+  const total=quizQuestions.length;
+
+  function applyAnswer(correctIdx){
+    document.querySelectorAll('.opt').forEach((btn,i)=>{
+      if(i===correctIdx) btn.classList.add('correct');
+      else if(i===chosen&&chosen!==correctIdx) btn.classList.add('wrong');
+    });
+    if(chosen===correctIdx) score++;
+    return correctIdx;
+  }
+
+  try{
+    const res=await fetch(AI_ENDPOINT,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt})
+    });
+    if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error||'Server error '+res.status);}
+    const data=await res.json();
+    const text=data.text||'';
+    const cM=text.match(/CORRECT:\s*([A-D])/i);
+    const eM=text.match(/EXPLAIN:\s*([\s\S]+)/i);
+    let correctIdx=-1;
+    if(cM) correctIdx=applyAnswer(L.indexOf(cM[1].toUpperCase()));
+    const explanation=eM?eM[1].trim():text.trim();
+    aiBox.innerHTML=`<p>${explanation||'See the highlighted answer above.'}</p>`;
+    renderMath(aiBox);
+    answers[currentQ]={chosen,correctIdx,explanation:explanation||''};
+  }catch(e){
+    document.querySelectorAll('.opt').forEach((btn,i)=>{if(i===chosen) btn.style.borderColor='#534AB7';});
+    aiBox.innerHTML=`<p>⚠️ AI tutor is temporarily unavailable. Ask your teacher to confirm the correct answer.</p>`;
+    answers[currentQ]={chosen,correctIdx:-1,explanation:''};
+  }
+  nextBtn.disabled=false;
+  nextBtn.textContent=currentQ+1>=total?'Finish ✓':'Next →';
+}
+
+function nextQ(){
+  const nb=document.getElementById('next-btn');
+  if(nb.disabled) return;
+  currentQ++;
+  if(currentQ>=quizQuestions.length){showResults();return;}
+  loadQ();
+}
+function prevQ(){if(currentQ<=0) return;currentQ--;loadQ();}
+
+function showResults(){
+  releaseSession();
+  go('s-results');
+  const pct=Math.round((score/quizQuestions.length)*100);
+  document.getElementById('r-pct').textContent=pct+'%';
+  document.getElementById('r-cor').textContent=score;
+  document.getElementById('r-tot').textContent=quizQuestions.length;
+  document.getElementById('r-emoji').textContent=pct>=80?'🎉':pct>=50?'💪':'📚';
+  document.getElementById('r-title').textContent=pct>=80?'Excellent Work!':pct>=50?'Good Effort!':'Keep Studying!';
+  document.getElementById('r-sub').textContent=pct>=80?'You aced this quiz.':pct>=50?"You're getting there!":'Review the material and try again.';
+}
+
+function restart(){currentQ=0;score=0;answers={};go('s-class');}
+
+// ── CONTENT PROTECTION ────────────────────────────────────────────────────────
+function onQuiz(){return document.getElementById('s-quiz').classList.contains('active');}
+document.addEventListener('keydown',e=>{if(!onQuiz()) return;if(e.ctrlKey&&'cxap'.includes(e.key)) e.preventDefault();if(e.key==='PrintScreen') e.preventDefault();},true);
+document.addEventListener('copy',       e=>{if(onQuiz()) e.preventDefault();},true);
+document.addEventListener('cut',        e=>{if(onQuiz()) e.preventDefault();},true);
+document.addEventListener('dragstart',  e=>{if(onQuiz()) e.preventDefault();},true);
+document.addEventListener('selectstart',e=>{if(onQuiz()) e.preventDefault();},true);
+</script>
+</body>
+</html>
