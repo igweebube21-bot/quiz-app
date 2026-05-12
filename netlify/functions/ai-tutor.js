@@ -17,10 +17,12 @@ exports.handler = async (event) => {
 
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
+    console.error("GEMINI_API_KEY not set");
     return { statusCode: 500, body: JSON.stringify({ error: "GEMINI_API_KEY not configured" }) };
   }
 
   try {
+    console.log("Calling Gemini API...");
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -33,13 +35,23 @@ exports.handler = async (event) => {
       }
     );
 
+    const raw = await res.text();
+    console.log("Gemini status:", res.status);
+    console.log("Gemini response:", raw.slice(0, 500));
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || "Gemini API error " + res.status);
+      throw new Error("Gemini API error " + res.status + ": " + raw.slice(0, 200));
     }
 
-    const data = await res.json();
+    const data = JSON.parse(raw);
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    if (!text) {
+      console.error("Empty text from Gemini. Full response:", raw);
+      throw new Error("Empty response from Gemini");
+    }
+
+    console.log("Gemini text:", text.slice(0, 200));
 
     return {
       statusCode: 200,
@@ -48,6 +60,7 @@ exports.handler = async (event) => {
     };
 
   } catch (e) {
+    console.error("Error:", e.message);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: e.message })
